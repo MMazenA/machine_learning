@@ -79,11 +79,13 @@ def q5():
     (2) Put the 0th and 1st rows, 2nd and 3rd columns of  array a into  array b, then print b.
     (3) Print b(0,0)
     """
-    a = np.array([[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]])
-    b = a[0:2, 2:4]
-
-    print(a)
-    print(b)
+    a = np.arange(1, 13).reshape((4, 3))
+    b = a[0:2, 1:3]
+    print(
+        "Question 5:\n",
+        f"array 'a':\n{a}\n",
+        f"b[0,0]: {b[0][0]}\n\n",
+    )
 
 
 def q6():
