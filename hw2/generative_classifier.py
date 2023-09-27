@@ -17,14 +17,22 @@ class naive_bayes():
         self.training_set = self.dataset.drop(self.testing_set.index)
         self.possible_outputs = self.dataset[self.predicting_feature].unique()
 
-
+    def discrete_probabilites(self):
+        """Produce probability chart for each features count with respect to its actual output"""
+        dict_training_set = dict(tuple(self.training_set.groupby(self.predicting_feature)))
+        col_names = list(self.discrete_cols)
+        self.discrete_probabalities = dict.fromkeys(col_names)
+        for key in dict_training_set:
+            feature_dict = {}
+            for col in col_names:
+                feature_dict[col] = (dict_training_set[key][col].value_counts())
+            self.discrete_probabalities[key] = feature_dict.copy()
+        return self.discrete_probabalities[key]
+    
     def train(self):
         self.split_data()
-        dict_training_set = dict(tuple(self.training_set.groupby(self.predicting_feature)))
-        for key in dict_training_set:
-            group_total = dict_training_set[key].shape[0]
 
-    def gaussian_likelihood(self,x,mean,std):
+
                 
 
     def normalize(self,continues_cols):
