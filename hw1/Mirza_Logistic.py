@@ -33,8 +33,8 @@ def Logistic(X, y, W, b, n, alpha, iterations):
         # Step 2: Backpropagation
 
         # not sure which one is correct
-        # dW = (1 / n) * np.dot(X, dz.T)
-        # db = (1 / n) * np.sum(dz)
+        # dW = (1 / n) * np.dot(X, (y_hat - y).T)
+        # db = (1 / n) * np.sum(y_hat - y)
         dW = np.dot(X, (y_hat - y).T)
         db = np.sum(y_hat - y)
         # print(dW)
@@ -79,7 +79,7 @@ n = X.shape[1]
 W = np.array([0.01, 0.02])
 b = -1
 alpha = 0.01
-iterations = 400
+iterations = 100000
 y_hat, W, b, J = Logistic(X, y, W, b, n, alpha, iterations)
 print(W, J[-1])
 plotBestFit(X, y, J, W, b, n, y_hat)
