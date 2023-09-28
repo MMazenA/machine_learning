@@ -8,6 +8,9 @@ class naive_bayes():
         self.training_set = None
         self.predicting_feature = predicting_feature
         self.continues_cols = None
+        mask = self.dataset.applymap(type) != bool
+        replace = {True: 'TRUE', False: 'FALSE'}
+        self.dataset = self.dataset.where(mask, self.dataset.replace(replace))
         
         
     def split_data(self, test_ratio=0.2):
@@ -61,33 +64,62 @@ class naive_bayes():
 
     def predict_single(self,row: pd.DataFrame):
         sol = {} #dict of size class_count for all the chances of the test case
+
+        row_without_classifier = row.drop([self.predicting_feature],axis=1)
+        print(row)
+        
         for key in self.possible_outputs:
-            # print(self.occurance_prob[key],end=" ")
-            likelihood = np.log(self.occurance_prob[key])
-            for feature in row.columns:
-                if feature in self.continues_cols:
-                    #z score
-                    mstd = self.probabilities[key][feature]
-                    mean = mstd[0]
-                    std = mstd[1]
-                    likelihood+=np.log((row[feature] - mean)/std)
-                    pass
-                else:
-                    row_feature = row[feature]
-                    feature_occurance = self.probabilities[key][feature][row_feature].iloc[0]
-                    print(feature_occurance,row_feature)
-                    feature_total = sum(self.probabilities[key][feature])
-                    likelihood+= np.log(feature_occurance/feature_total)
+            likelihood = self.occurance_prob[key] / sum(self.occurance_prob)
+            # print()
+            # print()
+            # print("liklihood=",likelihood)
+            for feature in row_without_classifier.columns:
+                    if feature in self.continues_cols and not row[feature].isnull().values.any():
+                        #z score
+                        mstd = self.probabilities[key][feature]
+                        mean = mstd[0]
+                        std = mstd[1]
+                        z_score = (row[feature].values - mean)/std
+                        z_score = 1/abs(z_score)
+                        # print("z=",z_score)
+                        likelihood+=z_score
+                        
+                    elif not row[feature].isnull().values.any():
+                        row_feature = row[feature]
+                        # print(self.probabilities[key][feature][row_feature])
+                        try:
+                            feature_occurance = self.probabilities[key][feature][row_feature.values].values
+                            feature_total = sum(self.probabilities[key][feature])
+                        except:
+                            feature_occurance = 0 
+                            feature_total = 1
+
+                        # print("occurance= ",feature_occurance, " sum=",feature_total)
+                        probability = feature_occurance/feature_total
+                        likelihood+= probability
+                # except:
+                #     print("ERROR!!!")
+                #     print(row[feature].values)
+                #     return
+                    # print(feature)
+                    # print()
+                    # print()
                     
                     
                     
-            print(likelihood)
-            sol[key] = likelihood
+            # print(likelihood)
+            sol[key] = likelihood[0]
+        maximum =["key",float("-inf")]
+        for key in sol:
+            if sol[key] > maximum[1]:
+                maximum = [key,sol[key]]
+        print(maximum)
+        print(sol)
 
             
     def test(self):
-
-        self.predict_single(self.testing_set.head(1))
+        # print(self.testing_set.head(1))
+        self.predict_single(self.training_set.iloc[[66]])
 
 
 
@@ -102,15 +134,15 @@ class naive_bayes():
         ) / self.dataset[continues_cols].std()
         self.dataset = normalized_set
 
-class knn():
-    def innit():
-        pass
 
 
 
 
-data = pd.read_csv("heart_disease_uci.csv")
+
+data = pd.read_csv("heart_disease_uci.csv").dropna()
+# print(data.shape)
 data.drop(["id"],axis=1,inplace=True)
+data= data.sample(frac=1)
 x = naive_bayes(data,"num")
 x.normalize(["age", "trestbps", "chol", "thalch", "oldpeak"])
 x.train()
