@@ -1,20 +1,32 @@
 from statistics import NormalDist
 import numpy as np
 import pandas as pd
-class naive_bayes():
-    def __init__(self, dataset : pd.DataFrame, predicting_feature: str, continues_cols = None) -> None:
+
+
+class NaiveBayes:
+    """Naive bayes classifier, requires python3.10"""
+
+    def __init__(
+        self, dataset: pd.DataFrame, predicting_feature: str, continues_cols=None
+    ) -> None:
         """Inits naive bayes class using pandas dataframe.Normalizes based on Z-score."""
+        self.raw_dataset = dataset
         self.dataset = dataset
         self.testing_set = None
         self.training_set = None
+
         self.predicting_feature = predicting_feature
-        self.continues_cols = None
         self.continues_cols = continues_cols
-        #map boolean features to strings
+        self.possible_outputs = None
+        self.discrete_cols = None
+        self.probabilities = None
+        self.occurance_prob = None
+
+        # map boolean features to strings
         mask = self.dataset.map(type) != bool
-        replace = {True: 'TRUE', False: 'FALSE'}
+        replace = {True: "TRUE", False: "FALSE"}
         self.dataset = self.dataset.where(mask, self.dataset.replace(replace))
-        
+
     def split_data(self, test_ratio=0.2):
         """Split the dataset into training and testing sets."""
         testing_size = int(self.dataset.shape[0] * test_ratio)
@@ -22,7 +34,7 @@ class naive_bayes():
         self.training_set = self.dataset.drop(self.testing_set.index)
         self.possible_outputs = self.dataset[self.predicting_feature].unique()
 
-    def normalize(self,continues_cols):
+    def normalize(self, continues_cols):
         """Normalize columns that are continous using Z score."""
         self.continues_cols = continues_cols
         removing = set(continues_cols).union(set(self.predicting_feature))
@@ -35,19 +47,26 @@ class naive_bayes():
 
     def discrete_probabilities(self):
         """Produce probability chart for each features count with respect to its actual output"""
-        dict_training_set = dict(tuple(self.training_set.groupby(self.predicting_feature)))
+        dict_training_set = dict(
+            tuple(self.training_set.groupby(self.predicting_feature))
+        )
         col_names = list(self.discrete_cols)
         discrete_probabalities = dict.fromkeys(col_names)
         for key in dict_training_set:
             feature_dict = {}
             for col in col_names:
-                feature_dict[col] = (dict_training_set[key][col].value_counts())
+                feature_dict[col] = dict_training_set[key][col].value_counts()
             discrete_probabalities[key] = feature_dict.copy()
         return discrete_probabalities
-    
+
     def continous_probabilities(self):
-        """Produce every features mean and variance for continous features. Assumes variance is equal between classes."""
-        dict_training_set = dict(tuple(self.training_set.groupby(self.predicting_feature)))
+        """
+        Produce every features mean and variance for continous features.
+        Assumes variance is equal between classes.
+        """
+        dict_training_set = dict(
+            tuple(self.training_set.groupby(self.predicting_feature))
+        )
         col_names = list(self.continues_cols)
         continous_probabilities = dict.fromkeys(self.possible_outputs)
         for key in continous_probabilities:
@@ -55,15 +74,15 @@ class naive_bayes():
             for feature in col_names:
                 feature_mean = np.mean(dict_training_set[key][feature])
                 feature_variance = np.std(dict_training_set[key][feature])
-                feature_dict[feature] = [feature_mean,feature_variance]
+                feature_dict[feature] = [feature_mean, feature_variance]
             continous_probabilities[key] = feature_dict.copy()
         return continous_probabilities
-        
+
     def occurance_probabilities(self):
         """Computes the probability that a class occurs."""
         value_counts = self.training_set.value_counts(self.predicting_feature)
         return value_counts
-    
+
     def probability_table(self):
         """Computes discrete and continous probabilities into one table."""
         cont = self.continous_probabilities()
@@ -71,71 +90,109 @@ class naive_bayes():
         for key in cont:
             cont[key].update(disc[key])
         return cont
-    
+
     def train(self):
         """Splits, produces probability tables, and produces mean and variance."""
         self.split_data()
         self.probabilities = self.probability_table()
         self.occurance_prob = self.occurance_probabilities()
 
-    def predict_single(self,row: pd.DataFrame):
+    def predict_single(self, row: pd.DataFrame, alpha, feature_count):
         """Produces prediction for a single row."""
         sol = {}
-        row_without_classifier = row.drop([self.predicting_feature],axis=1)        
+        row_without_classifier = row.drop([self.predicting_feature], axis=1)
         for key in self.possible_outputs:
             likelihood = np.log(self.occurance_prob[key] / sum(self.occurance_prob))
 
             for feature in row_without_classifier.columns:
-                    if feature in self.continues_cols:
-                        mstd = self.probabilities[key][feature]
-                        mean = mstd[0]
-                        std = mstd[1]
-                        z_score = (row[feature].values - mean)/std
-                        if z_score > 0:
-                            z_score = -z_score
-                        cdf = NormalDist().cdf(z_score) * 2                        
-                        likelihood+=np.log(cdf)
+                if feature in self.continues_cols:
+                    mstd = self.probabilities[key][feature]
+                    mean = mstd[0]
+                    std = mstd[1]
+                    z_score = (row[feature].values - mean) / std
+                    if z_score > 0:
+                        z_score = -z_score
+                    cdf = NormalDist().cdf(z_score) * 2
+                    likelihood += np.log(cdf)
+                else:
+                    row_feature = row[feature]
+                    seen = row_feature.values[0] in self.probabilities[key][feature]
+                    if not seen:
+                        feature_occurance = 0
+                        feature_total = 0
                     else:
-                        row_feature = row[feature]
-                        if row_feature.values[0] not in self.probabilities[key][feature]:
-                            #never before seen feature
-                            continue
-                        feature_occurance = self.probabilities[key][feature][row_feature.values].values
+                        feature_occurance = self.probabilities[key][feature][
+                            row_feature.values
+                        ].values
                         feature_total = sum(self.probabilities[key][feature])
-                        probability = feature_occurance/feature_total
-                        likelihood+= np.log(probability)
+                    probability = (feature_occurance + alpha) / (
+                        feature_total + (alpha * feature_count)
+                    )
+                    likelihood += np.log(probability)
             sol[key] = likelihood
-        
-        maximum =["key",float("-inf")]
-        for key in sol:
-            if sol[key] > maximum[1]:
-                maximum = [key,sol[key]]
+
+        maximum = ["key", float("-inf")]
+        for key, value in sol.items():
+            if value > maximum[1]:
+                maximum = [key, value]
         return maximum[0]
-            
-    def test(self, testing_set=None):
-        """Run testing set to determine accuracy."""
+
+    def test(self, testing_set=None, alpha=1):
+        """Produce confusion matrix from testing set."""
+        feature_count = len(self.discrete_cols)
+        print(feature_count)
         if testing_set:
             self.testing_set = testing_set
         row_count = self.testing_set.shape[0]
-        wrong=0
-        for i in range(row_count):
-            prediction = self.predict_single(self.testing_set.iloc[[i]])
-            if prediction==0 and self.testing_set.iloc[[i]][self.predicting_feature].values !=0:
-                wrong+=1
-        print(wrong,row_count)
-        return [wrong,row_count]
+        confusion_matrix = {
+            "true_positive": 0,
+            "false_positive": 0,
+            "true_negative": 0,
+            "false_negative": 0,
+        }
 
+        for i in range(row_count):
+            prediction = self.predict_single(
+                self.testing_set.iloc[[i]], alpha, feature_count
+            )
+            true_value = self.testing_set.iloc[[i]][self.predicting_feature].values
+            if prediction == 0:
+                # predication is negative
+                if true_value != 0:
+                    confusion_matrix["false_negative"] += 1
+                else:
+                    confusion_matrix["true_negative"] += 1
+            else:
+                # predication is postive
+                if true_value != 1:
+                    confusion_matrix["false_positive"] += 1
+                else:
+                    confusion_matrix["true_positive"] += 1
+
+        return confusion_matrix
 
 
 def main():
+    """Example usage."""
     data = pd.read_csv("heart_disease_uci.csv")
-    data.drop(["id"],axis=1,inplace=True)
-    #randomize data
-    data= data.sample(frac=1)
-    nb = naive_bayes(data,"num")
-    nb.normalize(["age", "trestbps", "chol", "thalch", "oldpeak"])
-    nb.train()
-    nb.test()
+    data["num"] = data["num"].map({0: 0, 1: 1, 2: 1, 3: 1, 4: 1, 5: 1})
+    for column_name in data.columns:
+        mode_value = data[column_name].mode().values[0]
+        data[column_name].fillna(mode_value, inplace=True)
+    data.drop(["id"], axis=1, inplace=True)
+    
+    # randomize data
+    data = data.sample(frac=1)
+    naive_b = NaiveBayes(data, "num")
+    naive_b.normalize(["age", "trestbps", "chol", "thalch", "oldpeak"])
+    naive_b.train()
+    confusion = naive_b.test(alpha=1)
+    print(confusion)
+    print(
+        (confusion["true_positive"] + confusion["true_negative"])
+        / sum(confusion.values())
+    )
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     main()
