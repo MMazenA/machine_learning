@@ -21,11 +21,16 @@ class NaiveBayes:
         self.discrete_cols = None
         self.probabilities = None
         self.occurance_prob = None
+        self.confusion_matrix = None
 
         # map boolean features to strings
         mask = self.dataset.map(type) != bool
         replace = {True: "TRUE", False: "FALSE"}
         self.dataset = self.dataset.where(mask, self.dataset.replace(replace))
+    def mode_replacement(self):
+        for column_name in self.dataset.columns:
+            mode_value = self.dataset[column_name].mode().values[0]
+            self.dataset[column_name].fillna(mode_value, inplace=True)
 
     def split_data(self, test_ratio=0.2):
         """Split the dataset into training and testing sets."""
@@ -140,7 +145,6 @@ class NaiveBayes:
     def test(self, testing_set=None, alpha=1):
         """Produce confusion matrix from testing set."""
         feature_count = len(self.discrete_cols)
-        print(feature_count)
         if testing_set:
             self.testing_set = testing_set
         row_count = self.testing_set.shape[0]
@@ -168,30 +172,56 @@ class NaiveBayes:
                     confusion_matrix["false_positive"] += 1
                 else:
                     confusion_matrix["true_positive"] += 1
-
+        self.confusion_matrix = confusion_matrix
         return confusion_matrix
+
+    def testing_results(self):
+        if self.confusion_matrix == None:
+            Exception("Need to compute .test() before showing results")
+        #true and falses
+        tp = self.confusion_matrix["true_positive"]
+        tn = self.confusion_matrix["true_negative"]
+        fp = self.confusion_matrix["false_positive"]
+        fn = self.confusion_matrix["false_negative"]
+       
+        pr = tp/(tp+fp)
+        re = tp/(tp+fn)
+        ca = (tp+tn)/(tp+tn+fp+fn)
+        f1 = (2*tp)/(2*tp+fp+fn)
+
+        print(self.confusion_matrix)
+        print(f"Precision:{pr*100:8.3f}%")
+        print(f"Recall:{re*100:11.3f}%")
+        print(f"Accuracy:{ca*100:>9.3f}%")
+        print(f"F1:{f1*100:15.3f}%")
+        return [pr,re,ca,f1]
+
+def cleaned_dataset():
+    """Pre-Cleaned Dataset"""
+    data = pd.read_csv("heart.csv")
+    data = data.sample(frac=1)
+    naive_b = NaiveBayes(data, "HeartDisease")
+    naive_b.normalize(["Age", "RestingBP", "Cholesterol", "MaxHR", "Oldpeak"])
+    naive_b.train()
+    confusion = naive_b.test(alpha=1)
+    print(confusion)
+
 
 
 def main():
     """Example usage."""
     data = pd.read_csv("heart_disease_uci.csv")
-    data["num"] = data["num"].map({0: 0, 1: 1, 2: 1, 3: 1, 4: 1, 5: 1})
-    for column_name in data.columns:
-        mode_value = data[column_name].mode().values[0]
-        data[column_name].fillna(mode_value, inplace=True)
     data.drop(["id"], axis=1, inplace=True)
-    
+    data["num"] = data["num"].map({0: 0, 1: 1, 2: 1, 3: 1, 4: 1, 5: 1})
     # randomize data
-    data = data.sample(frac=1)
+    # data = data.sample(frac=1)
     naive_b = NaiveBayes(data, "num")
     naive_b.normalize(["age", "trestbps", "chol", "thalch", "oldpeak"])
+    naive_b.mode_replacement()
     naive_b.train()
-    confusion = naive_b.test(alpha=1)
-    print(confusion)
-    print(
-        (confusion["true_positive"] + confusion["true_negative"])
-        / sum(confusion.values())
-    )
+    naive_b.test(alpha=1)
+    naive_b.testing_results()
+
 
 
 if __name__ == "__main__":
