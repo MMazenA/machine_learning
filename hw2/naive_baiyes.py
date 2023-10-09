@@ -1,3 +1,4 @@
+"""Mazen Mirza"""
 from statistics import NormalDist
 import numpy as np
 import pandas as pd

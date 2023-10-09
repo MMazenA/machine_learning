@@ -1,3 +1,4 @@
+"""Mazen Mirza"""
 from statistics import NormalDist
 import numpy as np
 import pandas as pd
@@ -116,7 +117,7 @@ def main():
     data = pd.read_csv("heart_disease_uci.csv")
     data.drop(["id"], axis=1, inplace=True)
     data["num"] = data["num"].map({0: 0, 1: 1, 2: 1, 3: 1, 4: 1, 5: 1})
-    data = data.sample(frac=1)
+    # data = data.sample(frac=1)
 
     knn_test = knn(data, predicting_feature="num",k=9)
     knn_test.onehot_encode(["age","sex","dataset","cp","fbs","restecg","exang","slope","thal"])
