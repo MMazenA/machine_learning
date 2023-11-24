@@ -4,6 +4,9 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 from sklearn.decomposition import TruncatedSVD
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.preprocessing import MinMaxScaler
+
 import warnings
 
 warnings.filterwarnings("ignore")
@@ -32,29 +35,49 @@ def LGR(df_train, df_test):
     handle_model(LogisticRegression(max_iter=90), X, Y, X_test, Y_test)
 
 
+def KNN(df_train, df_test):
+    X = df_train.drop("label", axis=1)
+    Y = df_train["label"]
+    X_test = df_test.drop("label", axis=1)
+    Y_test = df_test["label"]
+    handle_model(KNeighborsClassifier(n_neighbors=3), X, Y, X_test, Y_test)
+
+
 def main():
     df_train = pd.read_csv("fashion-mnist_train.csv")
     df_test = pd.read_csv("fashion-mnist_test.csv")
     train_labels = df_train["label"]
     test_labels = df_test["label"]
 
-    # Original Data
+    df_train.drop("label", axis=1, inplace=True)
+    df_test.drop("label", axis=1, inplace=True)
+
+    df_train = pd.DataFrame(
+        MinMaxScaler().fit_transform(df_train), columns=df_train.columns
+    )
+    df_test = pd.DataFrame(
+        MinMaxScaler().fit_transform(df_test), columns=df_test.columns
+    )
+
+    df_train["label"] = train_labels
+    df_test["label"] = test_labels
+
     print("Original:")
     GNB(df_train, df_test)
     LGR(df_train, df_test)
+    KNN(df_train, df_test)
 
-    #
-    n_components = 10
-    svd = TruncatedSVD(n_components=n_components)
+    features = 11
+    svd = TruncatedSVD(n_components=features)
 
     X_train_svd = svd.fit_transform(df_train.drop("label", axis=1))
     X_test_svd = svd.transform(df_test.drop("label", axis=1))
 
     df_train_svd = pd.DataFrame(
-        data=X_train_svd, columns=[f"svd_{i}" for i in range(n_components)]
+        data=X_train_svd, columns=[f"svd_{i}" for i in range(features)]
     )
     df_test_svd = pd.DataFrame(
-        data=X_test_svd, columns=[f"svd_{i}" for i in range(n_components)]
+        data=X_test_svd, columns=[f"svd_{i}" for i in range(features)]
     )
     df_train_svd["label"] = train_labels
     df_test_svd["label"] = test_labels
@@ -62,6 +85,7 @@ def main():
     print("SVD: ")
     GNB(df_train_svd, df_test_svd)
     LGR(df_train_svd, df_test_svd)
+    KNN(df_train_svd, df_test_svd)
 
 
 if __name__ == "__main__":
