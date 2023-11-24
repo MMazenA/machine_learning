@@ -6,7 +6,6 @@ from sklearn.metrics import accuracy_score
 from sklearn.decomposition import TruncatedSVD
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import MinMaxScaler
-
 import warnings
 
 warnings.filterwarnings("ignore")
@@ -40,12 +39,25 @@ def KNN(df_train, df_test):
     Y = df_train["label"]
     X_test = df_test.drop("label", axis=1)
     Y_test = df_test["label"]
-    handle_model(KNeighborsClassifier(n_neighbors=3), X, Y, X_test, Y_test)
+    handle_model(KNeighborsClassifier(3), X, Y, X_test, Y_test)
+
+
+def scale_dataset(df):
+    labels = df["label"]
+    df = df.drop("label", axis=1)
+    scaler = MinMaxScaler()
+    scaled_data = scaler.fit_transform(df)
+    scaled_df = pd.DataFrame(scaled_data, columns=df.columns)
+    scaled_df["label"] = labels
+
+    return scaled_df
 
 
 def main():
     df_train = pd.read_csv("fashion-mnist_train.csv")
     df_test = pd.read_csv("fashion-mnist_test.csv")
+    df_train = scale_dataset(df_train)
+    df_test = scale_dataset(df_test)
     train_labels = df_train["label"]
     test_labels = df_test["label"]
 

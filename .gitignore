@@ -1,2 +1,3 @@
 env/
 .vscode/
+fashion-mnist_train.csv
